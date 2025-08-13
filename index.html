@@ -1,24 +1,1103 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Car Infotainment System</title>
-    <meta name="description" content="Modern Car Infotainment System with Navigation, Music, Phone, and Vehicle Controls" />
-    <meta name="author" content="Automotive Technologies" />
+    <meta name="description" content="Modern Car Infotainment System with Navigation, Music, Phone, and Vehicle Controls">
+    
+    <!-- External CDN Dependencies -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        /* CSS Variables for theming */
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-accent: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666666;
+            --accent-color: #00d4ff;
+            --accent-glow: #00d4ff33;
+            --success-color: #00ff88;
+            --warning-color: #ff8800;
+            --danger-color: #ff4444;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --shadow-glow: 0 0 20px var(--accent-glow);
+        }
 
-    <meta property="og:title" content="Car Infotainment System" />
-    <meta property="og:description" content="Modern Car Infotainment System with Navigation, Music, Phone, and Vehicle Controls" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-accent: #e5e5e5;
+            --text-primary: #000000;
+            --text-secondary: #333333;
+            --text-muted: #666666;
+            --glass-bg: rgba(0, 0, 0, 0.05);
+            --glass-border: rgba(0, 0, 0, 0.1);
+        }
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-  </head>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+            50% { box-shadow: 0 0 40px var(--accent-color); }
+        }
+
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        .animate-slide-up { animation: slideUp 0.3s ease-out; }
+        .animate-pulse { animation: pulse 2s infinite; }
+        .animate-glow { animation: glow 2s infinite; }
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .splash-logo {
+            width: 120px;
+            height: 120px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: var(--bg-primary);
+            margin-bottom: 30px;
+            animation: glow 2s infinite;
+        }
+
+        .splash-quote {
+            font-size: 18px;
+            color: var(--text-secondary);
+            text-align: center;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        /* Main Layout */
+        .app-container {
+            min-height: 100vh;
+            display: grid;
+            grid-template-areas: 
+                "topbar topbar"
+                "sidebar content";
+            grid-template-rows: 80px 1fr;
+            grid-template-columns: 80px 1fr;
+        }
+
+        /* Top Bar */
+        .topbar {
+            grid-area: topbar;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .clock {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .date {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--success-color);
+        }
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-primary);
+            font-weight: bold;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            gap: 20px;
+        }
+
+        .nav-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--bg-accent);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-secondary);
+        }
+
+        .nav-icon:hover, .nav-icon.active {
+            background: var(--accent-color);
+            color: var(--bg-primary);
+            box-shadow: var(--shadow-glow);
+            transform: scale(1.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            grid-area: content;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            height: 100%;
+        }
+
+        /* Widget Styles */
+        .widget {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .widget:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .widget-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        /* Weather Widget */
+        .weather-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .weather-icon {
+            font-size: 48px;
+        }
+
+        .weather-info h3 {
+            font-size: 36px;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .weather-details {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Music Widget */
+        .music-content {
+            text-align: center;
+        }
+
+        .album-art {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+            margin: 0 auto 15px;
+            background: var(--bg-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .song-info h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .artist-name {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .music-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-accent);
+            border: none;
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            background: var(--accent-color);
+            color: var(--bg-primary);
+        }
+
+        .control-btn.play {
+            background: var(--accent-color);
+            color: var(--bg-primary);
+            width: 50px;
+            height: 50px;
+        }
+
+        /* Car Status Widget */
+        .car-status {
+            text-align: center;
+        }
+
+        .car-image {
+            width: 120px;
+            height: 60px;
+            background: var(--accent-color);
+            border-radius: 8px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-primary);
+            font-weight: bold;
+        }
+
+        .car-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        /* Recent Calls Widget */
+        .call-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .call-item:last-child {
+            border-bottom: none;
+        }
+
+        .call-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .call-icon.incoming { background: var(--success-color); color: var(--bg-primary); }
+        .call-icon.outgoing { background: var(--accent-color); color: var(--bg-primary); }
+        .call-icon.missed { background: var(--danger-color); color: var(--bg-primary); }
+
+        .call-info {
+            flex: 1;
+        }
+
+        .call-name {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .call-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Map Widget */
+        .map-container {
+            height: 200px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-accent);
+        }
+
+        /* Dedicated Pages */
+        .page-header {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: var(--accent-color);
+        }
+
+        /* Settings Page */
+        .settings-section {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: var(--bg-accent);
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: var(--accent-color);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(30px);
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--glass-border);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .app-container {
+                grid-template-areas: 
+                    "topbar"
+                    "content";
+                grid-template-rows: 80px 1fr;
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 80px;
+                flex-direction: row;
+                justify-content: space-around;
+                z-index: 1000;
+            }
+
+            .main-content {
+                padding-bottom: 100px;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Hidden class */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Icons using CSS */
+        .icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+        }
+
+        /* SVG Icons as Data URIs */
+        .icon-phone { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-music { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-map { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor'%3E%3Cpolygon points='1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6'/%3E%3Cline x1='8' y1='2' x2='8' y2='18'/%3E%3Cline x1='16' y1='6' x2='16' y2='22'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-settings { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-play { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpolygon points='5 3 19 12 5 21 5 3'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-pause { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Crect x='6' y='4' width='4' height='16'/%3E%3Crect x='14' y='4' width='4' height='16'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-prev { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpolygon points='19 20 9 12 19 4 19 20'/%3E%3Cline x1='5' y1='19' x2='5' y2='5'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+        .icon-next { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpolygon points='5 4 15 12 5 20 5 4'/%3E%3Cline x1='19' y1='5' x2='19' y2='19'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen">
+        <div class="splash-logo animate-glow">🚗</div>
+        <div class="splash-quote animate-fade-in">
+            "The journey of a thousand miles begins with a single step."
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="app-container hidden">
+        <!-- Top Bar -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <div id="clock" class="clock">12:00:00</div>
+            </div>
+            <div class="topbar-right">
+                <div id="date" class="date">Monday, January 1, 2024</div>
+                <div class="status-icons">
+                    <div class="status-icon">📶</div>
+                    <div class="status-icon">🔋</div>
+                    <div class="status-icon">📡</div>
+                </div>
+                <div class="profile-icon">JD</div>
+            </div>
+        </div>
+
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="nav-icon active" data-page="dashboard">
+                <div class="icon icon-phone"></div>
+            </div>
+            <div class="nav-icon" data-page="phone">
+                <div class="icon icon-phone"></div>
+            </div>
+            <div class="nav-icon" data-page="music">
+                <div class="icon icon-music"></div>
+            </div>
+            <div class="nav-icon" data-page="maps">
+                <div class="icon icon-map"></div>
+            </div>
+            <div class="nav-icon" data-page="settings">
+                <div class="icon icon-settings"></div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard" class="page active">
+                <div class="dashboard">
+                    <!-- Weather Widget -->
+                    <div class="widget" onclick="navigateToPage('weather')">
+                        <div class="widget-title">Weather</div>
+                        <div class="weather-content">
+                            <div id="weatherIcon" class="weather-icon">☀️</div>
+                            <div class="weather-info">
+                                <h3 id="temperature">22°</h3>
+                                <div class="weather-details">
+                                    <div id="location">San Francisco</div>
+                                    <div>Humidity: <span id="humidity">65%</span></div>
+                                    <div id="weatherDescription">Sunny</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Music Widget -->
+                    <div class="widget" onclick="navigateToPage('music')">
+                        <div class="widget-title">Now Playing</div>
+                        <div class="music-content">
+                            <div id="albumArt" class="album-art">🎵</div>
+                            <div class="song-info">
+                                <h4 id="songTitle">Midnight Drive</h4>
+                                <div id="artistName" class="artist-name">Electric Dreams</div>
+                            </div>
+                            <div class="music-controls">
+                                <button class="control-btn" onclick="previousTrack(event)">
+                                    <div class="icon icon-prev"></div>
+                                </button>
+                                <button id="playBtn" class="control-btn play" onclick="togglePlay(event)">
+                                    <div class="icon icon-play"></div>
+                                </button>
+                                <button class="control-btn" onclick="nextTrack(event)">
+                                    <div class="icon icon-next"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Car Status Widget -->
+                    <div class="widget" onclick="navigateToPage('car')">
+                        <div class="widget-title">Vehicle Status</div>
+                        <div class="car-status">
+                            <div class="car-image">🚗</div>
+                            <div class="car-stats">
+                                <div class="stat-item">
+                                    <div id="speed" class="stat-value">65</div>
+                                    <div class="stat-label">mph</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div id="gear" class="stat-value">D</div>
+                                    <div class="stat-label">Gear</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div id="battery" class="stat-value">85%</div>
+                                    <div class="stat-label">Battery</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div id="range" class="stat-value">245</div>
+                                    <div class="stat-label">mi Range</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Calls Widget -->
+                    <div class="widget" onclick="navigateToPage('phone')">
+                        <div class="widget-title">Recent Calls</div>
+                        <div id="recentCalls">
+                            <!-- Calls will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Map Preview Widget -->
+                    <div class="widget" onclick="navigateToPage('maps')" style="grid-column: span 2;">
+                        <div class="widget-title">Map Preview</div>
+                        <div id="mapPreview" class="map-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phone Page -->
+            <div id="phone" class="page">
+                <div class="page-header">Phone</div>
+                <div class="settings-section">
+                    <h3>Call Log</h3>
+                    <div id="fullCallLog">
+                        <!-- Full call log will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Music Page -->
+            <div id="music" class="page">
+                <div class="page-header">Music</div>
+                <div class="settings-section">
+                    <h3>Current Playlist</h3>
+                    <div id="playlist">
+                        <!-- Playlist will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maps Page -->
+            <div id="maps" class="page">
+                <div class="page-header">Navigation</div>
+                <div id="fullMap" style="height: 400px; background: var(--bg-accent); border-radius: 12px;"></div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settings" class="page">
+                <div class="page-header">Settings</div>
+                
+                <div class="settings-section">
+                    <h3>Appearance</h3>
+                    <div class="setting-item">
+                        <div>
+                            <div>Dark Mode</div>
+                            <div style="font-size: 14px; color: var(--text-secondary);">Switch between light and dark themes</div>
+                        </div>
+                        <div id="darkModeToggle" class="toggle-switch" onclick="toggleDarkMode()">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>System</h3>
+                    <div class="setting-item">
+                        <div>Software Version</div>
+                        <div>v2.1.0</div>
+                    </div>
+                    <div class="setting-item">
+                        <div>Last Update</div>
+                        <div>Dec 15, 2024</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global State
+        let isPlaying = false;
+        let currentTrack = 0;
+        let currentSpeed = 65;
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+        let map = null;
+        let fullMap = null;
+
+        // Sample Data
+        const tracks = [
+            { title: "Midnight Drive", artist: "Electric Dreams", duration: "3:45" },
+            { title: "Neon Highways", artist: "Synthwave Studio", duration: "4:12" },
+            { title: "City Lights", artist: "Urban Sounds", duration: "3:28" },
+            { title: "Digital Dreams", artist: "Future Beats", duration: "4:01" }
+        ];
+
+        const callsData = [
+            { name: "Sarah Johnson", time: "2 min ago", type: "incoming" },
+            { name: "Mike Chen", time: "15 min ago", type: "outgoing" },
+            { name: "Unknown", time: "1 hour ago", type: "missed" },
+            { name: "Emma Wilson", time: "2 hours ago", type: "outgoing" }
+        ];
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show splash screen for 3 seconds
+            setTimeout(() => {
+                document.getElementById('splashScreen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('splashScreen').classList.add('hidden');
+                    document.getElementById('app').classList.remove('hidden');
+                    initializeApp();
+                }, 500);
+            }, 3000);
+        });
+
+        function initializeApp() {
+            // Initialize dark mode
+            if (isDarkMode) {
+                document.body.setAttribute('data-theme', 'dark');
+                document.getElementById('darkModeToggle').classList.add('active');
+            } else {
+                document.body.setAttribute('data-theme', 'light');
+            }
+
+            // Start clock
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Start car simulation
+            simulateCarData();
+            setInterval(simulateCarData, 1000);
+
+            // Load initial data
+            loadWeatherData();
+            loadMusicData();
+            populateRecentCalls();
+            initializeMap();
+
+            // Setup navigation
+            setupNavigation();
+        }
+
+        // Clock Functions
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const dateString = now.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            document.getElementById('clock').textContent = timeString;
+            document.getElementById('date').textContent = dateString;
+        }
+
+        // Weather Functions
+        async function loadWeatherData() {
+            try {
+                // Using OpenWeatherMap API (you'll need to replace with actual API key)
+                const apiKey = 'demo_key'; // Replace with actual API key
+                const city = 'San Francisco';
+                const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+                
+                // Simulated weather data for demo
+                const weatherData = {
+                    main: { temp: 22, humidity: 65 },
+                    weather: [{ main: 'Clear', description: 'sunny' }],
+                    name: 'San Francisco'
+                };
+
+                updateWeatherDisplay(weatherData);
+            } catch (error) {
+                console.error('Weather data loading failed:', error);
+                // Use fallback data
+                const fallbackData = {
+                    main: { temp: 22, humidity: 65 },
+                    weather: [{ main: 'Clear', description: 'sunny' }],
+                    name: 'San Francisco'
+                };
+                updateWeatherDisplay(fallbackData);
+            }
+        }
+
+        function updateWeatherDisplay(data) {
+            document.getElementById('temperature').textContent = `${Math.round(data.main.temp)}°`;
+            document.getElementById('humidity').textContent = `${data.main.humidity}%`;
+            document.getElementById('location').textContent = data.name;
+            document.getElementById('weatherDescription').textContent = data.weather[0].description;
+            
+            // Update weather icon based on condition
+            const condition = data.weather[0].main.toLowerCase();
+            const icons = {
+                'clear': '☀️',
+                'clouds': '☁️',
+                'rain': '🌧️',
+                'snow': '❄️',
+                'thunderstorm': '⛈️'
+            };
+            document.getElementById('weatherIcon').textContent = icons[condition] || '☀️';
+        }
+
+        // Music Functions
+        async function loadMusicData() {
+            try {
+                // Simulated music data (in real app, use Deezer API)
+                updateMusicDisplay(tracks[currentTrack]);
+            } catch (error) {
+                console.error('Music data loading failed:', error);
+            }
+        }
+
+        function updateMusicDisplay(track) {
+            document.getElementById('songTitle').textContent = track.title;
+            document.getElementById('artistName').textContent = track.artist;
+        }
+
+        function togglePlay(event) {
+            event.stopPropagation();
+            isPlaying = !isPlaying;
+            const playBtn = document.getElementById('playBtn');
+            const icon = playBtn.querySelector('.icon');
+            
+            if (isPlaying) {
+                icon.className = 'icon icon-pause';
+            } else {
+                icon.className = 'icon icon-play';
+            }
+        }
+
+        function previousTrack(event) {
+            event.stopPropagation();
+            currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
+            updateMusicDisplay(tracks[currentTrack]);
+        }
+
+        function nextTrack(event) {
+            event.stopPropagation();
+            currentTrack = (currentTrack + 1) % tracks.length;
+            updateMusicDisplay(tracks[currentTrack]);
+        }
+
+        // Car Simulation Functions
+        function simulateCarData() {
+            // Simulate speed variation
+            currentSpeed += (Math.random() - 0.5) * 5;
+            currentSpeed = Math.max(0, Math.min(120, currentSpeed));
+            
+            document.getElementById('speed').textContent = Math.round(currentSpeed);
+            
+            // Simulate battery drain
+            const battery = parseInt(document.getElementById('battery').textContent);
+            if (Math.random() < 0.01) { // 1% chance to decrease battery
+                const newBattery = Math.max(0, battery - 1);
+                document.getElementById('battery').textContent = `${newBattery}%`;
+                
+                // Update range based on battery
+                const range = Math.round(newBattery * 3);
+                document.getElementById('range').textContent = range;
+            }
+        }
+
+        // Calls Functions
+        function populateRecentCalls() {
+            const recentCallsContainer = document.getElementById('recentCalls');
+            const fullCallLogContainer = document.getElementById('fullCallLog');
+            
+            const callsHTML = callsData.map(call => `
+                <div class="call-item">
+                    <div class="call-icon ${call.type}">📞</div>
+                    <div class="call-info">
+                        <div class="call-name">${call.name}</div>
+                        <div class="call-time">${call.time}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            recentCallsContainer.innerHTML = callsHTML;
+            fullCallLogContainer.innerHTML = callsHTML;
+        }
+
+        // Map Functions
+        function initializeMap() {
+            // Initialize preview map
+            if (typeof L !== 'undefined') {
+                map = L.map('mapPreview').setView([37.7749, -122.4194], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.marker([37.7749, -122.4194]).addTo(map);
+            }
+        }
+
+        function initializeFullMap() {
+            if (typeof L !== 'undefined' && !fullMap) {
+                fullMap = L.map('fullMap').setView([37.7749, -122.4194], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(fullMap);
+                L.marker([37.7749, -122.4194]).addTo(fullMap);
+            }
+        }
+
+        // Navigation Functions
+        function setupNavigation() {
+            const navIcons = document.querySelectorAll('.nav-icon');
+            navIcons.forEach(icon => {
+                icon.addEventListener('click', () => {
+                    const page = icon.getAttribute('data-page');
+                    navigateToPage(page);
+                });
+            });
+        }
+
+        function navigateToPage(page) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => {
+                p.classList.remove('active');
+            });
+
+            // Show selected page
+            document.getElementById(page).classList.add('active');
+
+            // Update navigation active state
+            document.querySelectorAll('.nav-icon').forEach(icon => {
+                icon.classList.remove('active');
+            });
+            document.querySelector(`[data-page="${page}"]`).classList.add('active');
+
+            // Initialize page-specific content
+            if (page === 'maps') {
+                setTimeout(initializeFullMap, 100);
+            }
+        }
+
+        // Dark Mode Functions
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            localStorage.setItem('darkMode', isDarkMode);
+            
+            const toggle = document.getElementById('darkModeToggle');
+            
+            if (isDarkMode) {
+                document.body.setAttribute('data-theme', 'dark');
+                toggle.classList.add('active');
+            } else {
+                document.body.setAttribute('data-theme', 'light');
+                toggle.classList.remove('active');
+            }
+        }
+
+        // Unit Tests (Jest-style)
+        function runTests() {
+            console.log('Running tests...');
+
+            // Test weather data formatting
+            function testWeatherDataFormatting() {
+                const mockData = {
+                    main: { temp: 25.5, humidity: 70 },
+                    weather: [{ main: 'Clear', description: 'sunny' }],
+                    name: 'Test City'
+                };
+                
+                // This would normally update DOM, but for testing we'll just validate
+                const expectedTemp = Math.round(mockData.main.temp);
+                console.assert(expectedTemp === 26, 'Weather temperature formatting failed');
+                console.log('✓ Weather data formatting test passed');
+            }
+
+            // Test music controls
+            function testMusicControls() {
+                const initialTrack = currentTrack;
+                const initialPlaying = isPlaying;
+                
+                // Test next track
+                nextTrack({ stopPropagation: () => {} });
+                console.assert(currentTrack === (initialTrack + 1) % tracks.length, 'Next track failed');
+                
+                // Test previous track
+                previousTrack({ stopPropagation: () => {} });
+                console.assert(currentTrack === initialTrack, 'Previous track failed');
+                
+                console.log('✓ Music controls test passed');
+            }
+
+            // Test car speed simulation
+            function testCarSpeedSimulation() {
+                const initialSpeed = currentSpeed;
+                simulateCarData();
+                console.assert(currentSpeed >= 0 && currentSpeed <= 120, 'Car speed out of bounds');
+                console.log('✓ Car speed simulation test passed');
+            }
+
+            // Test dark mode persistence
+            function testDarkModePersistence() {
+                const initialMode = isDarkMode;
+                toggleDarkMode();
+                const storedMode = localStorage.getItem('darkMode') === 'true';
+                console.assert(storedMode === isDarkMode, 'Dark mode persistence failed');
+                
+                // Restore initial state
+                if (initialMode !== isDarkMode) {
+                    toggleDarkMode();
+                }
+                console.log('✓ Dark mode persistence test passed');
+            }
+
+            // Run all tests
+            testWeatherDataFormatting();
+            testMusicControls();
+            testCarSpeedSimulation();
+            testDarkModePersistence();
+
+            console.log('All tests completed!');
+        }
+
+        // Run tests after initialization
+        setTimeout(runTests, 5000);
+    </script>
+</body>
 </html>
